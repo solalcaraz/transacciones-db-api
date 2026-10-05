@@ -95,7 +95,12 @@ Y abrí http://127.0.0.1:5500. Tiene que ser el puerto 5500 porque es el único 
 
 Este repositorio es un fork de **[IlledNacu/transacciones-db-api](https://github.com/IlledNacu/transacciones-db-api)**, el trabajo práctico que hicimos en equipo entre septiembre y noviembre de 2025. El tag [`tp-original-2025`](https://github.com/solalcaraz/transacciones-db-api/tree/tp-original-2025) marca el TP tal como lo entregamos. El front tiene su propio fork, [solalcaraz/frontend-transacciones](https://github.com/solalcaraz/frontend-transacciones), de [IlledNacu/frontend-transacciones](https://github.com/IlledNacu/frontend-transacciones).
 
-**Equipo:** NOMBRE_PENDIENTE, Illed Nacucchio, Damian Palomba, Lorenzo Graizzaro, Luis Mazo y Santiago Rodriguez Spina.
+**Equipo:** María Sol Alcaraz, Illed Nacucchio, Damián Palomba, Lorenzo Graizzaro, Luis Mazo y Santiago Rodríguez Spina.
+
+**Mi parte en la versión original**:
+
+- Participé en la definición de la idea del proyecto.
+- Hice el gráfico de dispersión de clientes del dashboard: ubica a cada cliente según su monto promedio y el tiempo entre sus transacciones, y usa Isolation Forest para resaltar a los que se salen de lo común.
 
 **Lo que hice después en este fork**:
 
@@ -108,7 +113,7 @@ Este repositorio es un fork de **[IlledNacu/transacciones-db-api](https://github
 - En el front, reemplacé los datos de ejemplo inventados que aparecían cuando la API no respondía por un mensaje de error.
 - Separé la detección de anomalías en `deteccion.py` y dejé los endpoints solo con la consulta y la respuesta.
 - En el front, junté el código que estaba copiado en cada página en `comun.js` y `tabla.js`.
-- Eliminé el código comentado, los imports sin uso y los comentarios que solo repetían el código.
+- Eliminé el código comentado, los imports sin uso, los comentarios que solo repetían el código y dos archivos que ya no se usaban: una versión anterior de la detección y un script que leía un CSV inexistente.
 - Grabé la demo y reescribí este README.
 
 Para comprobar que el comportamiento no cambió, guardé las respuestas de todos los endpoints con el código original, incluido el detalle de cada uno de los 351 clientes sospechosos, y las comparé con las del código nuevo: son idénticas, salvo en los errores corregidos. En el front recorrí cada página con Playwright antes y después (carga, búsqueda, paginación, detalle, altas y edición) y comparé el texto que se ve en pantalla.
