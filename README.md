@@ -37,7 +37,9 @@ La detección está en `deteccion.py` y trabaja en dos niveles:
 - **Clientes.** Para cada cliente calcula seis indicadores: cantidad de transacciones, monto promedio, desvío, máximo, mínimo y tiempo promedio entre transacciones. Isolation Forest, LOF y K-Means analizan esos indicadores por separado, y un cliente queda como sospechoso si al menos dos de los tres lo marcan.
 - **Transacciones de un cliente.** Cuando se abre el detalle de un cliente, los mismos tres modelos analizan sus transacciones comparándolas solo con su propio historial: monto, hora, si fue de noche o en fin de semana, y segundos desde la transacción anterior. Una transacción queda marcada si la detectan al menos dos modelos y el score combinado llega a 50 sobre 100.
 
-Las decisiones de diseño las tomamos en equipo durante el TP. Usamos tres modelos porque cada uno mira algo distinto: Isolation Forest aísla los puntos raros respecto de todo el conjunto, LOF compara cada punto con la densidad de sus vecinos y K-Means mide qué tan lejos queda del grupo al que pertenece. Pedir que coincidan dos evita depender de las rarezas de uno solo.
+Entre todos buscamos y limpiamos el dataset, diseñamos el modelo de datos (entidades, relaciones, restricciones y alcance de la base), creamos la base en MySQL según el diagrama entidad-relación y cargamos los datos procesados. La API de este repositorio trabaja con SQLite.
+
+Las decisiones de diseño también las tomamos en equipo. Usamos tres modelos porque cada uno mira algo distinto: Isolation Forest aísla los puntos raros respecto de todo el conjunto, LOF compara cada punto con la densidad de sus vecinos y K-Means mide qué tan lejos queda del grupo al que pertenece. Pedir que coincidan dos evita depender de las rarezas de uno solo.
 
 Como los modelos no explican por qué marcan a alguien, cada cliente sospechoso trae además motivos legibles, como "monto muy alto comparado con su promedio" o "transacciones demasiado seguidas". El reporte arranca por los clientes y recién en el detalle analiza transacciones, porque era más eficiente que analizarlas todas juntas: sobre las 173.242 transacciones, los modelos tardan unos 13 segundos y marcan 13.233. Por el mismo motivo nos quedamos con un solo mes de datos.
 
@@ -99,8 +101,11 @@ Este repositorio es un fork de **[IlledNacu/transacciones-db-api](https://github
 
 **Mi parte en la versión original**:
 
-- Participé en la definición de la idea del proyecto.
-- Hice el gráfico de dispersión de clientes del dashboard: ubica a cada cliente según su monto promedio y el tiempo entre sus transacciones, y usa Isolation Forest para resaltar a los que se salen de lo común.
+- Participé en la definición de la idea del proyecto y en la limpieza del dataset.
+- Armé consultas de la API (endpoints) junto con otros dos compañeros.
+- Hice el gráfico de dispersión de clientes sospechosos del dashboard: ubica a cada cliente según su monto promedio y el tiempo entre sus transacciones, y usa Isolation Forest para resaltar a los que se salen de lo común.
+- Hice las pantallas paginadas de clientes y de cajeros, y la de tipos de transacción.
+- Hice las correcciones finales para que se mostraran todas las transacciones y todos los clientes: las listas quedaban cortadas y no se veía el total.
 
 **Lo que hice después en este fork**:
 
