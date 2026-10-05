@@ -1,61 +1,114 @@
-# Sistema de Detección de Fraude Bancario (Detector de Anomalías)
+# Detector de anomalías en transacciones bancarias
 
-Este proyecto implementa un **API RESTful** utilizando **FastAPI** para la gestión de datos de transacciones bancarias y la detección de anomalías (fraude) en clientes y transacciones a través de algoritmos de Machine Learning no supervisado.
-El enfoque principal del sistema, siguiendo la recomendación de optimización, se centra en la **detección de clientes sospechosos** para luego obtener las transacciones asociadas, logrando así una mayor eficiencia en el procesamiento de grandes volúmenes de datos.
+API y panel web que analizan las transacciones de una red de cajeros automáticos y marcan a los clientes con comportamiento sospechoso, usando tres modelos de detección de anomalías. Es el trabajo práctico (TP) de la materia Base de Datos de la Tecnicatura en Programación Informática (UNSAM, 2025), que hicimos en un equipo de seis personas. Este repositorio es el backend; el front está en [frontend-transacciones](https://github.com/solalcaraz/frontend-transacciones).
 
-## Arquitectura y Algoritmos de Detección
+## Problema que resuelve
 
-El sistema utiliza tres modelos de Detección de Anomalías no supervisados para establecer un **consenso** y mejorar la precisión:
+La consigna pedía diseñar una base de datos de transacciones financieras y aplicar técnicas de IA para detectar posibles fraudes. El dataset que usamos, [Wisabi Bank](https://www.kaggle.com/datasets/obinnaiheanachor/wisabi-bank-dataset) de Kaggle, tiene transacciones de cajeros de cinco estados de Nigeria, pero no indica cuáles son fraude. Sin etiquetas no hay contra qué entrenar ni contra qué medir, así que el problema no se puede plantear como una clasificación: hay que encontrar lo que se aparta del comportamiento habitual y, además, poder explicarle a quien mira el reporte por qué se marcó a alguien.
 
-* **Isolation Forest (iForest):** Detecta anomalías basándose en el aislamiento de los puntos atípicos.
-* **Local Outlier Factor (LOF):** Identifica anomalías midiendo la densidad local de un punto de datos en comparación con sus vecinos.
-* **K-Means (Clustering):** Marca como anómalos aquellos puntos que se encuentran más alejados de su centroide de clúster, detectando patrones de comportamiento alejados de la norma.
+El otro desafío fue el volumen: los CSV originales pesan 160 MB y los modelos se entrenan en el momento de cada consulta, sin resultados guardados.
 
-### Detección de Clientes Sospechosos (`anomalias_clientes.py`)
+## Demo
 
-Se calculan *features* de comportamiento (ej: `monto_promedio`, `conteo_transacciones`, `tiempo_entre_transacciones`) para cada cliente. Un cliente es marcado como sospechoso si es detectado por un **mínimo de 2 de los 3 modelos de IA**, además de cumplir con criterios de negocio (ej: monto máximo desproporcionado respecto al promedio).
+![Recorrido por el dashboard, el reporte de clientes sospechosos, el detalle de un cliente y las tablas de transacciones y clientes](docs/demo.gif)
 
-## Estructura del Proyecto
+El recorrido pasa por el dashboard con el gráfico de clientes, el reporte de sospechosos, el detalle de un cliente con dos transacciones marcadas y las tablas de transacciones y clientes. Las esperas de carga están aceleradas en el GIF: con los datos completos, el dashboard tarda unos 9 segundos en mostrarse porque los modelos se entrenan de nuevo en cada pedido.
 
-El proyecto se organiza en módulos claros para la gestión de la lógica de negocio y los *endpoints* del API:<br>
+## Tecnologías
 
-├── data/ # CSVs limpios<br>
-├── data_original/ # CSVs originales obtenidos en [kaggle.com/dataset](https://www.kaggle.com/datasets/obinnaiheanachor/wisabi-bank-dataset)<br>
-├── endpoints/<br>
-│ ├── anomalias_clientes.py # Lógica de detección de Clientes Sospechosos<br>
-│ ├── anomalias_transacciones.py # Lógica de detección de Transacciones Sospechosas<br>
-│ ├── estadisticas.py # Lógica para métricas y dashboard (utiliza la detección de anomalías)<br>
-│ └── (otros endpoints: cajeros, clientes, transacciones, etc.)<br>
-├── cargar_csvs.py # Script para cargar datos iniciales (CSVs) a la base de datos.<br>
-├── database.py # Configuración de la conexión a la base de datos (SQLite/SQLAlchemy).<br>
-├── main.py # Punto de entrada de la aplicación FastAPI.<br>
-├── models.py # Definición de los modelos de base de datos (SQLAlchemy).<br>
-├── procesar_datos.py # Lógica de pre-procesamiento de datos iniciales (limpia y ajusta los CSVs originales).<br>
-└── req_res_models.py # Modelos de solicitud/respuesta (Pydantic).
+- **Backend:** Python, FastAPI, SQLAlchemy y SQLite.
+- **Detección:** scikit-learn (Isolation Forest, Local Outlier Factor y K-Means), pandas y NumPy.
+- **Gráficos:** Plotly.
+- **Front:** HTML, JavaScript sin frameworks y Bootstrap 5 ([repositorio aparte](https://github.com/solalcaraz/frontend-transacciones)).
 
-## Configuración y Ejecución
+## Cómo funciona
 
-Pasos para poner en marcha el sistema:
+`procesar_datos.py` toma los CSV originales de `data_original/`, se queda con enero de 2022 y adapta las columnas al modelo de la base. El resultado queda en `data/`: 173.242 transacciones de 8.819 clientes en 50 cajeros. `cargar_csvs.py` crea las tablas en SQLite y carga esos archivos. La API expone el CRUD de clientes, cajeros, transacciones y tipos de transacción, y los endpoints de análisis que usa el front:
 
-### 1. Requisitos Previos
+| Endpoint | Qué devuelve |
+|---|---|
+| `GET /anomalias/clientes_sospechosos` | Los clientes marcados y los motivos de cada uno |
+| `GET /anomalias/transacciones_por_cliente/{id}` | Todas las transacciones del cliente, con las sospechosas marcadas y su score |
+| `GET /estadisticas` | Totales y porcentaje de clientes sospechosos para el dashboard |
+| `GET /anomalias/graficos/clientes_sospechosos` | El gráfico de dispersión de clientes, como HTML de Plotly |
 
-Asegúrate de tener instalado Python (preferentemente 3.9+) y `pip`.
+La detección está en `deteccion.py` y trabaja en dos niveles:
 
-### 2. Instalación de Dependencias
+- **Clientes.** Para cada cliente calcula seis indicadores: cantidad de transacciones, monto promedio, desvío, máximo, mínimo y tiempo promedio entre transacciones. Isolation Forest, LOF y K-Means analizan esos indicadores por separado, y un cliente queda como sospechoso si al menos dos de los tres lo marcan.
+- **Transacciones de un cliente.** Cuando se abre el detalle de un cliente, los mismos tres modelos analizan sus transacciones comparándolas solo con su propio historial: monto, hora, si fue de noche o en fin de semana, y segundos desde la transacción anterior. Una transacción queda marcada si la detectan al menos dos modelos y el score combinado llega a 50 sobre 100.
 
-Ejecutar en Bash:<br>
-`pip install -r requerimientos.txt` # Instala las dependencias: fastapi, uvicorn, sqlalchemy, pandas, scikit-learn, plotly.
+Las decisiones de diseño las tomamos en equipo durante el TP. Usamos tres modelos porque cada uno mira algo distinto: Isolation Forest aísla los puntos raros respecto de todo el conjunto, LOF compara cada punto con la densidad de sus vecinos y K-Means mide qué tan lejos queda del grupo al que pertenece. Pedir que coincidan dos evita depender de las rarezas de uno solo.
 
-### 3. Orden de Ejecución de Archivos
+Como los modelos no explican por qué marcan a alguien, cada cliente sospechoso trae además motivos legibles, como "monto muy alto comparado con su promedio" o "transacciones demasiado seguidas". El reporte arranca por los clientes y recién en el detalle analiza transacciones, porque era más eficiente que analizarlas todas juntas: sobre las 173.242 transacciones, los modelos tardan unos 13 segundos y marcan 13.233. Por el mismo motivo nos quedamos con un solo mes de datos.
 
-Ejecutar en la terminal:<br>
-1. `python procesar_datos.py` # Realiza la limpieza, normalización o cualquier transformación inicial de los datos fuente.
-2. `python main.py` # Inicializa la aplicación FastAPI, asegurando que las tablas del ORM se creen en la base de datos.
-3. `python cargar_csvs.py` # Carga los datos ya procesados (CSVs) a las tablas de la base de datos.
-4. `uvicorn main:app --reload` # Inicia el servidor API en modo desarrollo.
+Las decisiones que tomé y por qué:
 
-### 4. Acceso al Dashboard y API
+- **Separar los modelos en `deteccion.py`.** La lógica de machine learning estaba mezclada con los endpoints y el cálculo de indicadores y de motivos estaba duplicado. Ahora son funciones que reciben un DataFrame y no dependen de FastAPI ni de la base, y los endpoints solo consultan y arman la respuesta.
+- **No tocar los parámetros de los modelos.** El objetivo era ordenar el código, no cambiar qué se detecta. Para comprobarlo comparé las respuestas de la API antes y después de cada cambio.
+- **Mostrar errores en lugar de datos de ejemplo.** Cuando la API no respondía, el front mostraba clientes y cajeros inventados que podían confundirse con datos reales.
 
-Para acceder a la API Interactiva (Swagger UI): http://127.0.0.1:8000/docs <br>
+## Cómo correrlo
 
-Ya podemos levantar el Frontend con LiveServer y acceder a nuestro Dashboard.
+Necesitás Python 3.11 o superior. Desde una terminal:
+
+```bash
+git clone https://github.com/solalcaraz/transacciones-db-api.git
+cd transacciones-db-api
+python -m venv venv
+venv\Scripts\activate          # en Linux o macOS: source venv/bin/activate
+pip install -r requerimientos.txt
+python cargar_csvs.py          # crea transacciones.db y carga los datos (unos 20 segundos)
+uvicorn main:app --reload
+```
+
+La documentación interactiva de la API queda en http://127.0.0.1:8000/docs.
+
+`cargar_csvs.py` se corre una sola vez, con la base vacía; para cargar todo de nuevo, borrá `transacciones.db`. Los CSV de `data/` ya vienen procesados. Si querés regenerarlos desde los originales, corré `python procesar_datos.py` antes de cargarlos.
+
+Para el front, en otra terminal:
+
+```bash
+git clone https://github.com/solalcaraz/frontend-transacciones.git
+cd frontend-transacciones
+python -m http.server 5500
+```
+
+Y abrí http://127.0.0.1:5500. Tiene que ser el puerto 5500 porque es el único origen que la API acepta por CORS (Live Server de VS Code usa ese puerto por defecto).
+
+## Qué aprendí y qué mejoraría
+
+**Qué aprendí**
+
+- A trabajar con detección de anomalías cuando no hay etiquetas: sin un "resultado correcto" contra el cual medir, la forma de darle confianza al resultado es combinar modelos y acompañar cada alerta con un motivo que se pueda leer.
+- Que un modelo con parámetros fijos puede romperse cuando se aplica a conjuntos chicos. K-Means usaba siempre 5 grupos, y el detalle de los clientes con menos de 5 transacciones devolvía un error 500.
+- A refactorizar sin tests: guardé las respuestas de todos los endpoints antes de tocar el código y las usé como referencia para comparar después de cada cambio.
+
+**Qué mejoraría**
+
+- **Revisar el umbral del score por transacción.** En los tres modelos, un score más bajo significa "más anómalo", pero el filtro pide un score combinado de 50 o más. En la práctica, solo 41 de los 351 clientes sospechosos tienen alguna transacción marcada en su detalle, y las marcadas aparecen al final de la lista. Lo dejé como estaba porque corregirlo cambia los resultados del TP.
+- **Entrenar una vez y guardar los resultados.** Hoy cada pedido vuelve a entrenar los modelos: las estadísticas y el gráfico del dashboard tardan más de 4 segundos cada uno, y el reporte de clientes otro tanto.
+- **Agregar tests automáticos** que reemplacen la comparación manual de respuestas.
+- **Sacar la configuración del código:** la URL de la API en el front, el origen permitido por CORS y la ruta de la base están escritos a mano.
+- **Corregir el filtro de fechas:** `<= "2022-01-31"` compara contra la medianoche, así que el 31 de enero queda afuera.
+
+## Autoría y mejoras
+
+Este repositorio es un fork de **[IlledNacu/transacciones-db-api](https://github.com/IlledNacu/transacciones-db-api)**, el trabajo práctico que hicimos en equipo entre septiembre y noviembre de 2025. El tag [`tp-original-2025`](https://github.com/solalcaraz/transacciones-db-api/tree/tp-original-2025) marca el TP tal como lo entregamos. El front tiene su propio fork, [solalcaraz/frontend-transacciones](https://github.com/solalcaraz/frontend-transacciones), de [IlledNacu/frontend-transacciones](https://github.com/IlledNacu/frontend-transacciones).
+
+**Equipo:** NOMBRE_PENDIENTE, Illed Nacucchio, Damian Palomba, Lorenzo Graizzaro, Luis Mazo y Santiago Rodriguez Spina.
+
+**Lo que hice después en este fork**:
+
+- Corregí `requerimientos.txt`: tenía las dependencias en una sola línea separadas por comas y `pip install -r` fallaba.
+- Corregí el error 500 en el detalle de los clientes con menos de 5 transacciones (17 de los 351 clientes sospechosos).
+- Corregí el error 500 en el detalle de un cliente con una sola transacción.
+- Corregí `procesar_datos.py`, que fallaba en consolas de Windows por los emojis de sus mensajes.
+- Corregí el mensaje de borrado de tipos de transacción, que decía "Número de cuenta eliminado".
+- En el front, corregí el manejo de errores del dashboard, que cortaba la carga del gráfico cuando fallaban las estadísticas.
+- En el front, reemplacé los datos de ejemplo inventados que aparecían cuando la API no respondía por un mensaje de error.
+- Separé la detección de anomalías en `deteccion.py` y dejé los endpoints solo con la consulta y la respuesta.
+- En el front, junté el código que estaba copiado en cada página en `comun.js` y `tabla.js`.
+- Eliminé el código comentado, los imports sin uso y los comentarios que solo repetían el código.
+- Grabé la demo y reescribí este README.
+
+Para comprobar que el comportamiento no cambió, guardé las respuestas de todos los endpoints con el código original, incluido el detalle de cada uno de los 351 clientes sospechosos, y las comparé con las del código nuevo: son idénticas, salvo en los errores corregidos. En el front recorrí cada página con Playwright antes y después (carga, búsqueda, paginación, detalle, altas y edición) y comparé el texto que se ve en pantalla.
