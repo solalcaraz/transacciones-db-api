@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8,10 +10,12 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Transacciones bancarias")
 
-# El front se sirve con Live Server (puerto 5500), que es otro origen distinto al de la API.
+# El front se sirve desde otro origen que la API (por defecto, Live Server en el puerto 5500).
+# ORIGENES_PERMITIDOS acepta una lista separada por comas.
+origenes = os.getenv("ORIGENES_PERMITIDOS", "http://127.0.0.1:5500,http://localhost:5500").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5500", "http://localhost:5500"],
+    allow_origins=origenes,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

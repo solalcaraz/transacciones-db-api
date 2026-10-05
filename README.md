@@ -58,6 +58,8 @@ python cargar_csvs.py
 uvicorn main:app --reload
 ```
 
+La ruta de la base y los orígenes que acepta la API se pueden cambiar con las variables de entorno `DATABASE_URL` y `ORIGENES_PERMITIDOS`.
+
 Para ver el panel, levantá el [front](https://github.com/solalcaraz/frontend-transacciones) con `python -m http.server 5500` y abrí http://127.0.0.1:5500.
 
 ## Qué aprendí y qué mejoraría
@@ -98,6 +100,7 @@ Este repositorio es un fork de **[IlledNacu/transacciones-db-api](https://github
   - En el front, si fallaban las estadísticas, el dashboard tampoco cargaba el gráfico, y cuando la API no respondía se mostraban datos de ejemplo inventados.
 - Separé la detección de anomalías en `deteccion.py` y dejé los endpoints solo con la consulta y la respuesta.
 - En el front, junté el código que estaba copiado en cada página en `comun.js`, `tabla.js` y `menu.js`.
+- Saqué la configuración del código: la ruta de la base y los orígenes permitidos por CORS se leen de variables de entorno, y la URL de la API en el front está en `config.js`.
 - Eliminé el código comentado, los imports sin uso, los comentarios que solo repetían el código y dos archivos que ya no se usaban: una versión anterior de la detección y un script que leía un CSV inexistente.
 - Grabé la demo y reescribí este README.
 
