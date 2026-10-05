@@ -1,64 +1,51 @@
-import pandas as pd
-from sqlalchemy.orm import Session
 from datetime import datetime
 from decimal import Decimal
-from database import SessionLocal
-from models import Cliente, Cajero, Transaccion, TipoTransaccion
 
-# ---- CARGA DE DATOS A LA BD DESDE CSVs ----
+import pandas as pd
 
-db: Session = SessionLocal() # Creamos una sesión para conectar con la bd.
+from database import Base, SessionLocal, engine
+from models import Cajero, Cliente, TipoTransaccion, Transaccion
 
-# Cargamos data/clientes.csv usando la biblioteca de pandas y en base a la estructura de nuestros modelos
-clientes_df = pd.read_csv("data/clientes.csv") # Se crea un dataframe con todos los datos
-for _, row in clientes_df.iterrows(): # y por cada línea, iterativamente
-    fecha_nac = datetime.strptime(row["fecha_nacimiento"], "%Y-%m-%d").date() # transformamos el formato de la fecha
-    # y guardamos cada dato en la columna correspondiente:
-    cliente = Cliente(
+# Carga en la base los CSV ya procesados de data/. Se corre una sola vez, con la base vacía.
+
+Base.metadata.create_all(bind=engine)
+db = SessionLocal()
+
+for _, row in pd.read_csv("data/clientes.csv").iterrows():
+    db.add(Cliente(
         id=row["id"],
         nombre=row["nombre"],
         apellido=row["apellido"],
         genero=row["genero"],
-        fecha_nacimiento=fecha_nac,
+        fecha_nacimiento=datetime.strptime(row["fecha_nacimiento"], "%Y-%m-%d").date(),
         ocupacion=row["ocupacion"],
-        tipo_cuenta=row["tipo_cuenta"]
-    )
-    db.add(cliente)
+        tipo_cuenta=row["tipo_cuenta"],
+    ))
 
-# Ídem a clientes con las demás tablas (cajeros, tipos_transacciones, transacciones)
-cajeros_df = pd.read_csv("data/cajeros.csv")
-for _, row in cajeros_df.iterrows():
-    cajero = Cajero(
+for _, row in pd.read_csv("data/cajeros.csv").iterrows():
+    db.add(Cajero(
         id=row["id"],
         nombre=row["nombre"],
         ciudad=row["ciudad"],
         provincia=row["provincia"],
-        pais=row["pais"]
-    )
-    db.add(cajero)
+        pais=row["pais"],
+    ))
 
-tipos_df = pd.read_csv("data/tipos_transacciones.csv")
-for _, row in tipos_df.iterrows():
-    tipo = TipoTransaccion(
-        nombre=row["nombre"]
-    )
-    db.add(tipo)
+for _, row in pd.read_csv("data/tipos_transacciones.csv").iterrows():
+    db.add(TipoTransaccion(nombre=row["nombre"]))
 
-transacciones_df = pd.read_csv("data/transacciones.csv")
-for _, row in transacciones_df.iterrows():
-    fecha_hora = datetime.strptime(row["fecha_hora"], "%Y-%m-%d %H:%M:%S")
-
-    transaccion = Transaccion(
+for _, row in pd.read_csv("data/transacciones.csv").iterrows():
+    db.add(Transaccion(
         id=row["id"],
-        fecha_hora=fecha_hora,
+        fecha_hora=datetime.strptime(row["fecha_hora"], "%Y-%m-%d %H:%M:%S"),
         id_cliente=row["id_cliente"],
         id_cajero=row["id_cajero"],
         id_tipo_transaccion=row["id_tipo_transaccion"],
-        monto=Decimal(str(row["monto"]))
-    )
-    db.add(transaccion)
+        # Pasar por str evita arrastrar el error de redondeo del float al Decimal.
+        monto=Decimal(str(row["monto"])),
+    ))
 
-db.commit() # Confirmamos los cambios (si no no se guardan)
-db.close() # Cerramos la bd
+db.commit()
+db.close()
 
 print("Datos cargados correctamente")
