@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 def procesar_y_guardar_datos():
-    print("--- ⚙️ Iniciando procesamiento de datos originales ---")
+    print("Procesando los datos originales...")
 
     DIR_BASE = os.path.dirname(os.path.abspath(__file__)) 
     RUTA_ORIGINAL = os.path.join(DIR_BASE, "data_original")
@@ -11,7 +11,7 @@ def procesar_y_guardar_datos():
     # 1. Rutas y archivos (Validaciones)
     if not os.path.exists(RUTA_ORIGINAL):
         print(f"ERROR: No se encontró la carpeta de datos originales en: {RUTA_ORIGINAL}. Abortando.")
-        return # Sale de la función si hay error
+        return
 
     # Asegurar que la carpeta 'data' exista para guardar los archivos limpios
     os.makedirs(RUTA_LIMPIO, exist_ok=True)
@@ -31,9 +31,8 @@ def procesar_y_guardar_datos():
             ruta_archivo = os.path.join(RUTA_ORIGINAL, archivo)
             df = pd.read_csv(ruta_archivo)
             
-            # Filtrado por fecha
             df["TransactionStartDateTime"] = pd.to_datetime(df["TransactionStartDateTime"])
-            # Filtramos entre 2022-01-01 y 2022-01-31
+            # Solo enero de 2022, para reducir el volumen: los modelos se entrenan sobre todas las transacciones en cada consulta.
             mask = (df["TransactionStartDateTime"] >= "2022-01-01") & (df["TransactionStartDateTime"] <= "2022-01-31")
             df_filtrado = df.loc[mask]
             lista_dfs.append(df_filtrado)
@@ -46,7 +45,7 @@ def procesar_y_guardar_datos():
         print(f"Transacciones cargadas y filtradas: {len(transacciones)} registros.")
     else:
         print("ERROR: No se cargó ninguna transacción. Abortando.")
-        return # Sale de la función si hay error
+        return
 
     # 3. Cargar otros archivos y limpiar/renombrar columnas
     try:
@@ -55,7 +54,7 @@ def procesar_y_guardar_datos():
         tipo_transaccion = pd.read_csv(os.path.join(RUTA_ORIGINAL, "transaction_type_lookup.csv"))
     except FileNotFoundError as e:
         print(f"ERROR: Archivo de lookup no encontrado: {e}. Abortando.")
-        return # Sale de la función si hay error
+        return
 
     # Clientes
     clientes = clientes[['CardholderID', 'First Name', 'Last Name', 'Gender', 'Birth Date', 'Occupation', 'AccountType']]
@@ -90,7 +89,7 @@ def procesar_y_guardar_datos():
         'TransactionAmount': 'monto'
     })
 
-    # Tipo Transaccion (Solo renombrar, no seleccionar)
+    # Tipos de transacción (ya tiene solo las dos columnas que se usan)
     tipo_transaccion = tipo_transaccion.rename(columns ={
         'TransactionTypeID': 'id',
         'TransactionTypeName': 'nombre'
@@ -124,7 +123,7 @@ def procesar_y_guardar_datos():
     transacciones.to_csv(os.path.join(RUTA_LIMPIO, 'transacciones.csv'), index=False)
     tipo_transaccion.to_csv(os.path.join(RUTA_LIMPIO, 'tipos_transacciones.csv'), index=False)
 
-    print("✅ Proceso de limpieza finalizado. Archivos guardados en la carpeta 'data/'.")
+    print("Listo: archivos guardados en data/.")
 
 if __name__ == "__main__":
     procesar_y_guardar_datos()
