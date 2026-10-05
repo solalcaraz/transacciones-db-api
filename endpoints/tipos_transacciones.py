@@ -1,22 +1,28 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
+import database
 import models
 import req_res_models
-import database
-from typing import List
 
 router = APIRouter(prefix="/tipos_transacciones", tags=["Tipos de transacciones"])
 
+
+# Tiene que declararse antes de /{id}; si no, FastAPI interpreta "count" como un id.
 @router.get("/count")
 def get_tipos_transacciones_count(db: Session = Depends(database.get_db)):
     return db.query(models.TipoTransaccion).count()
 
+
 @router.get("/{id}", response_model=req_res_models.TipoTransaccionResponse)
 def get_tipo_transaccion(id: int, db: Session = Depends(database.get_db)):
-    tipo_transaccion = db.query(models.TipoTransaccion).filter(models.TipoTransaccion.id == id).first()
+    tipo_transaccion = db.get(models.TipoTransaccion, id)
     if not tipo_transaccion:
         raise HTTPException(status_code=404, detail="Tipo de transacción no encontrado.")
     return tipo_transaccion
+
 
 @router.post("/", response_model=req_res_models.TipoTransaccionResponse)
 def create_tipo_transaccion(tipo_transaccion: req_res_models.TipoTransaccionCreate, db: Session = Depends(database.get_db)):
@@ -28,9 +34,10 @@ def create_tipo_transaccion(tipo_transaccion: req_res_models.TipoTransaccionCrea
     db.refresh(nuevo_tipo)
     return nuevo_tipo
 
+
 @router.put("/{id}", response_model=req_res_models.TipoTransaccionResponse)
 def update_tipo_transaccion(id: int, tipo_transaccion: req_res_models.TipoTransaccionCreate, db: Session = Depends(database.get_db)):
-    db_tipo_transaccion = db.query(models.TipoTransaccion).filter(models.TipoTransaccion.id == id).first()
+    db_tipo_transaccion = db.get(models.TipoTransaccion, id)
     if not db_tipo_transaccion:
         raise HTTPException(status_code=404, detail="Este tipo de transacción no existe.")
     for field, value in tipo_transaccion.model_dump().items():
@@ -39,17 +46,17 @@ def update_tipo_transaccion(id: int, tipo_transaccion: req_res_models.TipoTransa
     db.refresh(db_tipo_transaccion)
     return db_tipo_transaccion
 
+
 @router.delete("/{id}")
-def delete_tipo_transaccion(id:int, db:Session = Depends(database.get_db)):
-    db_tipo_transaccion = db.query(models.TipoTransaccion).filter(models.TipoTransaccion.id == id).first()
+def delete_tipo_transaccion(id: int, db: Session = Depends(database.get_db)):
+    db_tipo_transaccion = db.get(models.TipoTransaccion, id)
     if not db_tipo_transaccion:
         raise HTTPException(status_code=404, detail="Este tipo de transacción no existe.")
     db.delete(db_tipo_transaccion)
     db.commit()
-    return {"message":"Número de cuenta eliminado."}
+    return {"message": "Tipo de transacción eliminado."}
+
 
 @router.get("/", response_model=List[req_res_models.TipoTransaccionResponse])
-def get_all_tipo_transaccion(db:Session = Depends(database.get_db)):
+def get_all_tipo_transaccion(db: Session = Depends(database.get_db)):
     return db.query(models.TipoTransaccion).all()
-
-# Todas las consultas siguen la misma lógica que las de cajeros.py
