@@ -37,7 +37,7 @@ La detección está en `deteccion.py` y trabaja en dos niveles:
 - **Clientes.** Para cada cliente calcula seis indicadores: cantidad de transacciones, monto promedio, desvío, máximo, mínimo y tiempo promedio entre transacciones. Isolation Forest, LOF y K-Means analizan esos indicadores por separado, y un cliente queda como sospechoso si al menos dos de los tres lo marcan.
 - **Transacciones de un cliente.** Cuando se abre el detalle de un cliente, los mismos tres modelos analizan sus transacciones comparándolas solo con su propio historial: monto, hora, si fue de noche o en fin de semana, y segundos desde la transacción anterior. Una transacción queda marcada si la detectan al menos dos modelos y el score combinado llega a 50 sobre 100.
 
-Entre todos buscamos y limpiamos el dataset, diseñamos el modelo de datos (entidades, relaciones, restricciones y alcance de la base), creamos la base en MySQL según el diagrama entidad-relación y cargamos los datos procesados. La API de este repositorio trabaja con SQLite.
+Entre todos buscamos y limpiamos el dataset, diseñamos el modelo de datos (entidades, relaciones, restricciones y alcance de la base), creamos la base en SQLite según el diagrama entidad-relación y cargamos los datos procesados.
 
 Las decisiones de diseño también las tomamos en equipo. Usamos tres modelos porque cada uno mira algo distinto: Isolation Forest aísla los puntos raros respecto de todo el conjunto, LOF compara cada punto con la densidad de sus vecinos y K-Means mide qué tan lejos queda del grupo al que pertenece. Pedir que coincidan dos evita depender de las rarezas de uno solo.
 
@@ -46,36 +46,19 @@ Como los modelos no explican por qué marcan a alguien, cada cliente sospechoso 
 Las decisiones que tomé y por qué:
 
 - **Separar los modelos en `deteccion.py`.** La lógica de machine learning estaba mezclada con los endpoints y el cálculo de indicadores y de motivos estaba duplicado. Ahora son funciones que reciben un DataFrame y no dependen de FastAPI ni de la base, y los endpoints solo consultan y arman la respuesta.
-- **No tocar los parámetros de los modelos.** El objetivo era ordenar el código, no cambiar qué se detecta. Para comprobarlo comparé las respuestas de la API antes y después de cada cambio.
 - **Mostrar errores en lugar de datos de ejemplo.** Cuando la API no respondía, el front mostraba clientes y cajeros inventados que podían confundirse con datos reales.
 
 ## Cómo correrlo
 
-Necesitás Python 3.11 o superior. Desde una terminal:
+Se necesita Python 3.11 o superior. Los datos ya vienen procesados en `data/`; solo hay que instalar las dependencias, cargar la base y levantar la API:
 
 ```bash
-git clone https://github.com/solalcaraz/transacciones-db-api.git
-cd transacciones-db-api
-python -m venv venv
-venv\Scripts\activate          # en Linux o macOS: source venv/bin/activate
 pip install -r requerimientos.txt
-python cargar_csvs.py          # crea transacciones.db y carga los datos (unos 20 segundos)
+python cargar_csvs.py
 uvicorn main:app --reload
 ```
 
-La documentación interactiva de la API queda en http://127.0.0.1:8000/docs.
-
-`cargar_csvs.py` se corre una sola vez, con la base vacía; para cargar todo de nuevo, borrá `transacciones.db`. Los CSV de `data/` ya vienen procesados. Si querés regenerarlos desde los originales, corré `python procesar_datos.py` antes de cargarlos.
-
-Para el front, en otra terminal:
-
-```bash
-git clone https://github.com/solalcaraz/frontend-transacciones.git
-cd frontend-transacciones
-python -m http.server 5500
-```
-
-Y abrí http://127.0.0.1:5500. Tiene que ser el puerto 5500 porque es el único origen que la API acepta por CORS (Live Server de VS Code usa ese puerto por defecto).
+Para ver el panel, levantá el [front](https://github.com/solalcaraz/frontend-transacciones) con `python -m http.server 5500` y abrí http://127.0.0.1:5500.
 
 ## Qué aprendí y qué mejoraría
 
@@ -90,8 +73,6 @@ Y abrí http://127.0.0.1:5500. Tiene que ser el puerto 5500 porque es el único 
 - **Revisar el umbral del score por transacción.** En los tres modelos, un score más bajo significa "más anómalo", pero el filtro pide un score combinado de 50 o más. En la práctica, solo 41 de los 351 clientes sospechosos tienen alguna transacción marcada en su detalle, y las marcadas aparecen al final de la lista. Lo dejé como estaba porque corregirlo cambia los resultados del TP.
 - **Entrenar una vez y guardar los resultados.** Hoy cada pedido vuelve a entrenar los modelos: las estadísticas y el gráfico del dashboard tardan más de 4 segundos cada uno, y el reporte de clientes otro tanto.
 - **Agregar tests automáticos** que reemplacen la comparación manual de respuestas.
-- **Sacar la configuración del código:** la URL de la API en el front, el origen permitido por CORS y la ruta de la base están escritos a mano.
-- **Corregir el filtro de fechas:** `<= "2022-01-31"` compara contra la medianoche, así que el 31 de enero queda afuera.
 
 ## Autoría y mejoras
 
@@ -109,15 +90,14 @@ Este repositorio es un fork de **[IlledNacu/transacciones-db-api](https://github
 
 **Lo que hice después en este fork**:
 
-- Corregí `requerimientos.txt`: tenía las dependencias en una sola línea separadas por comas y `pip install -r` fallaba.
-- Corregí el error 500 en el detalle de los clientes con menos de 5 transacciones (17 de los 351 clientes sospechosos).
-- Corregí el error 500 en el detalle de un cliente con una sola transacción.
-- Corregí `procesar_datos.py`, que fallaba en consolas de Windows por los emojis de sus mensajes.
-- Corregí el mensaje de borrado de tipos de transacción, que decía "Número de cuenta eliminado".
-- En el front, corregí el manejo de errores del dashboard, que cortaba la carga del gráfico cuando fallaban las estadísticas.
-- En el front, reemplacé los datos de ejemplo inventados que aparecían cuando la API no respondía por un mensaje de error.
+- Corregí los errores que encontré al correr el proyecto:
+  - `requerimientos.txt` tenía las dependencias en una sola línea y `pip install -r` fallaba.
+  - El detalle de un cliente devolvía error 500 si tenía menos de 5 transacciones (17 de los 351 sospechosos) o una sola.
+  - `procesar_datos.py` se cortaba en consolas de Windows por los emojis de sus mensajes.
+  - Al borrar un tipo de transacción, la API respondía "Número de cuenta eliminado"; ahora dice "Tipo de transacción eliminado".
+  - En el front, si fallaban las estadísticas, el dashboard tampoco cargaba el gráfico, y cuando la API no respondía se mostraban datos de ejemplo inventados.
 - Separé la detección de anomalías en `deteccion.py` y dejé los endpoints solo con la consulta y la respuesta.
-- En el front, junté el código que estaba copiado en cada página en `comun.js` y `tabla.js`.
+- En el front, junté el código que estaba copiado en cada página en `comun.js`, `tabla.js` y `menu.js`.
 - Eliminé el código comentado, los imports sin uso, los comentarios que solo repetían el código y dos archivos que ya no se usaban: una versión anterior de la detección y un script que leía un CSV inexistente.
 - Grabé la demo y reescribí este README.
 
